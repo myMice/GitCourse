@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-4.0.xsd 
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context-4.0.xsd 
+        http://www.springframework.org/schema/mvc 
+        http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd 
+        http://www.springframework.org/schema/aop 
+        http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+        http://www.springframework.org/schema/tx 
+        http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/task 
+        http://www.springframework.org/schema/task/spring-task-4.0.xsd">
+
+	<!-- Spring的配置文件,主要配置业务逻辑相关的内容 -->
+	<context:component-scan base-package="com.yuntu">
+		<!-- 除了控制器,其他都扫描 -->
+		<context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Controller" />
+	</context:component-scan>
+	
+	<!-- *************数据源************* -->
+	<!-- 数据源(默认直接配置在applicationContext.xml文件中;放在database.properties文件中；JNDI) -->
+	<context:property-placeholder location="classpath:dbconfig.properties"/>
+	<bean id="pooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<!-- URL -->
+		<property name="jdbcUrl" value="${jdbc.jdbcUrl}"></property>
+		<!-- 驱动 -->
+		<property name="driverClass" value="${jdbc.driverClass}"></property>
+		<!-- 账号 -->
+		<property name="user" value="${jdbc.user}"></property>
+		<!-- 密码 -->
+		<property name="password" value="${jdbc.password}"></property>
+	</bean>
+	<!-- *************数据源************* -->
+	
+	
+	<!-- ===============配置mybatis的整合=============== -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!-- 指定mybatis全局配置文件的位置 -->
+		<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+		<!-- 指定数据源的使用 -->
+		<property name="dataSource" ref="pooledDataSource"></property>
+		<!-- 指定mybatis，mapper文件所在的位置(类路径下的所有的映射文件) -->
+		<property name="mapperLocations" value="classpath:mapper/*.xml"></property>
+	</bean>
+	<!-- 配置扫描器,将mybatis接口的实现加入到Ioc容器中(接口实现类) -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.yuntu.curd.dao"></property>
+	</bean>
+	
+	<!-- 配置一个可以批量执行的sqlSession -->
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<!-- 指定sqlSessionFactory-->
+		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"></constructor-arg>
+		<!-- 
+			mybatis默认使用单个更新(executorType默认为SIMPLE而不是BATCH)
+			SIMPLE：单个模式
+			BATCH：批量模式
+		 -->
+		<constructor-arg name="executorType" value="BATCH"></constructor-arg>
+	</bean>
+	
+	
+	
+	
+	
+	<!-- ===============配置mybatis的整合===============* -->
+	
+	<!-- *************事务控制配置************* -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<!-- 添加数据源 -->
+		<property name="dataSource" ref="pooledDataSource"></property>
+	</bean>
+	
+	<!-- 配置事务增强 -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<!-- 所有的方法都是事务方法 -->
+			<tx:method name="*"/>
+			<!-- eg:以get开头的方法 -->
+			<tx:method name="get*" read-only="true"/>
+		</tx:attributes>
+	</tx:advice>
+	
+	<!-- 1.开启基于注解的事务  2.使用xml配置的形式的事务(一般情况下，比较重要的都是使用配置的事务) -->
+	<aop:config>
+		<!-- 配置切入点 -->
+		<aop:pointcut expression="execution(* com.yuntu.curd.service.*.*(..))" id="txPoint"/>
+		<!-- 事务增强 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint"/>
+	</aop:config>
+	
+	<!-- *************事务控制配置************* -->
+
+
+
+</beans>
